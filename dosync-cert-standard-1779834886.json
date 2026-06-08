@@ -1,0 +1,24 @@
+{
+  "dosync_cert_version": "0.1",
+  "certified": false,
+  "tier": "standard",
+  "hub": "localhost:47201",
+  "timestamp": "2026-05-26T22:34:46.303998Z",
+  "summary": {
+    "passed": 0,
+    "failed": 2
+  },
+  "fingerprint": "69a0b88102ebe974551a4539891810c93a8cac06f379a1499b1cc3e4588d6909",
+  "tests": [
+    {
+      "name": "Hub alcanzable en la red",
+      "passed": false,
+      "detail": "status=0"
+    },
+    {
+      "name": "(resto de tests omitidos \u2014 hub no responde)",
+      "passed": false,
+      "detail": ""
+    }
+  ]
+}
