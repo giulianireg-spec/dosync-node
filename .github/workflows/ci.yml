@@ -1,0 +1,75 @@
+name: DoSync Node CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Protocol conformance — Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ "20", "22" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      # ── Step 1: Syntax check ─────────────────────────────────────────────
+      - name: Syntax check
+        run: node --check src/server.js && echo "✓ syntax OK"
+
+      # ── Step 2: Server starts and responds ───────────────────────────────
+      - name: Hub startup and health check
+        run: |
+          DOSYNC_TOKEN=ci-test-token node src/server.js &
+          SERVER_PID=$!
+          sleep 2
+
+          # Health check — /v1/status
+          STATUS=$(curl -sf \
+            -H "Authorization: Bearer ci-test-token" \
+            http://localhost:47201/v1/status | python3 -c \
+            "import json,sys; d=json.load(sys.stdin); \
+             assert d['protocol_version'] == '0.1', 'missing protocol_version'; \
+             assert d['api_version'] == '1', 'missing api_version'; \
+             print('status OK — protocol_version=' + d['protocol_version'])")
+          echo "✓ $STATUS"
+
+          # Version headers — S13
+          HEADERS=$(curl -sf -I \
+            -H "Authorization: Bearer ci-test-token" \
+            http://localhost:47201/v1/status)
+          echo "$HEADERS" | grep -i "x-dosync-protocol-version" && echo "✓ version headers present"
+
+          # Heartbeat — S15
+          curl -sf \
+            -H "Authorization: Bearer ci-test-token" \
+            http://localhost:47201/v1/hub/heartbeat | python3 -c \
+            "import json,sys; d=json.load(sys.stdin); \
+             assert d['status'] == 'healthy'; \
+             assert d['role'] == 'primary'; \
+             print('✓ heartbeat OK — status=' + d['status'])"
+
+          # Intent classes — S16
+          curl -sf \
+            -H "Authorization: Bearer ci-test-token" \
+            http://localhost:47201/v1/intent-classes | python3 -c \
+            "import json,sys; d=json.load(sys.stdin); \
+             assert d['count'] >= 5; \
+             print('✓ intent-classes OK — count=' + str(d['count']))"
+
+          kill $SERVER_PID 2>/dev/null || true
