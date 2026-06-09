@@ -1,0 +1,4 @@
+node_modules/
+dosync-cert-*.json
+*.log
+.env
